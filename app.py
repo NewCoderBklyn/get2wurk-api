@@ -52,3 +52,4 @@ def custom_openapi():
 
 # ✅ Attach schema generator
 app.openapi = custom_openapi
+app.openapi_schema = None
