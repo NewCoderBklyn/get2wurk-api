@@ -19,6 +19,16 @@ from services.mta import fetch_alerts
 from services.geocode import geocode_one
 from fastapi.openapi.utils import get_openapi
 
+API_KEY = os.getenv("PUBLIC_API_KEY")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+async def require_key(x_api_key: str = Security(api_key_header)):
+    if API_KEY and x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return True
+
+app = FastAPI(title="GET2WURK API", version="0.2.0")
+
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
@@ -36,6 +46,8 @@ def custom_openapi():
     openapi_schema["security"] = [{"ApiKeyAuth": []}]
     app.openapi_schema = openapi_schema
     return openapi_schema
+
+app.openapi = custom_openapi
 
 API_KEY = os.getenv("PUBLIC_API_KEY")
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
