@@ -16,6 +16,27 @@ from services.citibike import (
 )
 from services.mta import fetch_alerts
 from services.geocode import geocode_one
+from fastapi.openapi.utils import get_openapi  # NEW
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="GET2WURK API",
+        version="0.2.0",
+        routes=app.routes,
+    )
+    # Tell Swagger about our API-key header
+    openapi_schema.setdefault("components", {}).setdefault("securitySchemes", {})
+    openapi_schema["components"]["securitySchemes"]["ApiKeyAuth"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+    }
+    # Apply globally so the lock appears and the header is sent
+    openapi_schema["security"] = [{"ApiKeyAuth": []}]
+    app.openapi_schema = openapi_schema
+    return openapi_schema
 
 API_KEY = os.getenv("PUBLIC_API_KEY")
 
@@ -25,6 +46,7 @@ async def require_key(x_api_key: str = Header(None)):
     return True
 
 app = FastAPI(title="GET2WURK API", version="0.2.0")
+app.openapi = custom_openapi  # NEW: enable Authorize button in /docs
 
 app.add_middleware(
     CORSMiddleware,
