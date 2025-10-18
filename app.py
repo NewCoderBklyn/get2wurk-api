@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI, HTTPException, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 
 from models import RecommendRequest, RecommendResponse, Rationale, CitiBikeStation, RecommendAddrRequest
 from core.logic import initial_bearing_deg, headwind_component_mph, choose_bike_type
@@ -37,8 +38,9 @@ def custom_openapi():
     return openapi_schema
 
 API_KEY = os.getenv("PUBLIC_API_KEY")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-async def require_key(x_api_key: str = Header(None)):
+async def require_key(x_api_key: str = Security(api_key_header)):
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return True
