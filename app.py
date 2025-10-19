@@ -18,24 +18,23 @@ from services.citibike import (
 from services.mta import fetch_alerts
 from services.geocode import geocode_one
 
-# =========================
-# API Key Security (Header)
-# =========================
-API_KEY = os.getenv("PUBLIC_API_KEY")
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+# ============
+# API Key Auth
+# ============
+API_KEY = os.getenv("PUBLIC_API_KEY", "")
+api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-async def require_key(x_api_key: str = Security(api_key_header)) -> bool:
+def verify_key(x_api_key: str | None) -> None:
     # If a key is configured, require it to match; if no key set, allow all
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return True
 
 # ===========
 # FastAPI app
 # ===========
 app = FastAPI(title="GET2WURK API", version="0.2.0")
 
-# CORS (open so your frontend can call it)
+# Open CORS so a future frontend (or your phone) can call this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -53,14 +52,19 @@ async def healthz():
 # Core Recommendation API
 # ======================
 @app.post("/v1/recommend", response_model=RecommendResponse)
-async def recommend(req: RecommendRequest, auth: bool = Security(require_key)):
+async def recommend(
+    req: RecommendRequest,
+    x_api_key: str | None = Security(api_key_scheme),  # <-- adds securitySchemes & Authorize
+):
+    verify_key(x_api_key)
+
     # Weather
     hourly = await fetch_nws_hourly(req.origin.lat, req.origin.lon)
     wind_speed_mph, wind_dir_from_deg, humidity_pct = parse_wind_humidity_hour(
         hourly, req.depart_at.isoformat() if req.depart_at else None
     )
     if humidity_pct is None:
-        humidity_pct = 50.0  # reasonable fallback
+        humidity_pct = 50.0  # fallback
 
     # Citi Bike data
     try:
@@ -69,13 +73,13 @@ async def recommend(req: RecommendRequest, auth: bool = Security(require_key)):
         raise HTTPException(status_code=502, detail=f"Citi Bike fetch failed: {e}")
     stations = merge_info_status(info_json, status_json)
 
-    # Nearest origin/dest stations
+    # Nearest origin/dest
     s_origin = nearest_station(req.origin.lat, req.origin.lon, stations)
     s_dest = nearest_station(req.destination.lat, req.destination.lon, stations)
     if not s_origin or not s_dest:
         raise HTTPException(status_code=404, detail="No nearby Citi Bike stations found.")
 
-    # Preferred destination (your default: W 58 St & 11 Ave) if docks available
+    # Preferred destination (default: W 58 St & 11 Ave) if docks available
     pref_name = getattr(req.prefs, "preferred_dest_station_name", None) or "W 58 St & 11 Ave"
     preferred = find_station_by_name(stations, pref_name)
     if preferred and (preferred.get("docks_available") or 0) > 0:
@@ -185,7 +189,12 @@ async def recommend(req: RecommendRequest, auth: bool = Security(require_key)):
     )
 
 @app.post("/v1/recommend_addr", response_model=RecommendResponse)
-async def recommend_addr(req: RecommendAddrRequest, auth: bool = Security(require_key)):
+async def recommend_addr(
+    req: RecommendAddrRequest,
+    x_api_key: str | None = Security(api_key_scheme),
+):
+    verify_key(x_api_key)
+
     o = await geocode_one(req.origin_addr)
     d = await geocode_one(req.destination_addr)
     if not o or not d:
@@ -196,7 +205,8 @@ async def recommend_addr(req: RecommendAddrRequest, auth: bool = Security(requir
         depart_at=req.depart_at,
         prefs=req.prefs
     )
-    return await recommend(rr, auth=auth)
+    # Re-use the main logic
+    return await recommend(rr, x_api_key=x_api_key)
 
 @app.get("/v1/quick")
 async def quick(
@@ -205,13 +215,15 @@ async def quick(
     dest_lat: float,
     dest_lon: float,
     preferred_dest_station_name: str = "W 58 St & 11 Ave",
-    auth: bool = Security(require_key)
+    x_api_key: str | None = Security(api_key_scheme),
 ):
+    verify_key(x_api_key)
+
     rr = RecommendRequest(
         origin={"lat": origin_lat, "lon": origin_lon},
         destination={"lat": dest_lat, "lon": dest_lon},
     )
     # honor preferred destination station name via prefs
     setattr(rr.prefs, "preferred_dest_station_name", preferred_dest_station_name)
-    res = await recommend(rr, auth=auth)
+    res = await recommend(rr, x_api_key=x_api_key)
     return f"{res.summary} | {res.recommendation}"
