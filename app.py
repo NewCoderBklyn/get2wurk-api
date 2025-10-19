@@ -2,6 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
+from fastapi.openapi.utils import get_openapi
 
 from models import RecommendRequest, RecommendResponse, Rationale, CitiBikeStation, RecommendAddrRequest
 from core.logic import initial_bearing_deg, headwind_component_mph, choose_bike_type
@@ -18,9 +19,7 @@ from services.citibike import (
 from services.mta import fetch_alerts
 from services.geocode import geocode_one
 
-# ============
-# API Key Auth
-# ============
+# ============  API Key Auth  ============
 API_KEY = os.getenv("PUBLIC_API_KEY", "")
 api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -29,12 +28,10 @@ def verify_key(x_api_key: str | None) -> None:
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-# ===========
-# FastAPI app
-# ===========
+# ============  FastAPI app  ============
 app = FastAPI(title="GET2WURK API", version="0.2.0")
 
-# Open CORS so a future frontend (or your phone) can call this API
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,18 +40,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Health check for Render
+# Friendly root + health
+@app.get("/")
+async def root():
+    return {"service": "get2wurk-api", "docs": "/docs", "health": "/healthz"}
+
 @app.get("/healthz")
 async def healthz():
     return {"ok": True}
 
-# ======================
-# Core Recommendation API
-# ======================
+# ============  Endpoints  ============
 @app.post("/v1/recommend", response_model=RecommendResponse)
 async def recommend(
     req: RecommendRequest,
-    x_api_key: str | None = Security(api_key_scheme),  # <-- adds securitySchemes & Authorize
+    x_api_key: str | None = Security(api_key_scheme),
 ):
     verify_key(x_api_key)
 
@@ -64,7 +63,7 @@ async def recommend(
         hourly, req.depart_at.isoformat() if req.depart_at else None
     )
     if humidity_pct is None:
-        humidity_pct = 50.0  # fallback
+        humidity_pct = 50.0
 
     # Citi Bike data
     try:
@@ -94,7 +93,7 @@ async def recommend(
     bike_type = "none"
     plan_b_note = None
 
-    # Choose bike type based on thresholds and availability
+    # Choose bike type + availability handling
     if req.prefs.bike_allowed:
         bike_type = choose_bike_type(
             headwind, humidity_pct,
@@ -147,7 +146,7 @@ async def recommend(
     # MTA alerts
     alerts = await fetch_alerts()
 
-    # Final recommendation & summary
+    # Final texts
     if bike_type == "none" and not req.prefs.transit_allowed:
         recommendation = "Walking recommended; no bikes available and transit disabled in preferences."
         summary = recommendation
@@ -194,7 +193,6 @@ async def recommend_addr(
     x_api_key: str | None = Security(api_key_scheme),
 ):
     verify_key(x_api_key)
-
     o = await geocode_one(req.origin_addr)
     d = await geocode_one(req.destination_addr)
     if not o or not d:
@@ -205,7 +203,6 @@ async def recommend_addr(
         depart_at=req.depart_at,
         prefs=req.prefs
     )
-    # Re-use the main logic
     return await recommend(rr, x_api_key=x_api_key)
 
 @app.get("/v1/quick")
@@ -218,12 +215,39 @@ async def quick(
     x_api_key: str | None = Security(api_key_scheme),
 ):
     verify_key(x_api_key)
-
     rr = RecommendRequest(
         origin={"lat": origin_lat, "lon": origin_lon},
         destination={"lat": dest_lat, "lon": dest_lon},
     )
-    # honor preferred destination station name via prefs
     setattr(rr.prefs, "preferred_dest_station_name", preferred_dest_station_name)
     res = await recommend(rr, x_api_key=x_api_key)
     return f"{res.summary} | {res.recommendation}"
+
+# ===========  FORCE securitySchemes in OpenAPI  ===========
+def custom_openapi():
+    """
+    Inject ApiKeyAuth into components.securitySchemes and set it as a global
+    requirement so Swagger shows the 🔒 Authorize button.
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title="GET2WURK API",
+        version="0.2.0",
+        routes=app.routes,
+    )
+    comps = schema.setdefault("components", {})
+    security_schemes = comps.setdefault("securitySchemes", {})
+    security_schemes["ApiKeyAuth"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+    }
+    # Apply globally (UI-wise)
+    schema["security"] = [{"ApiKeyAuth": []}]
+    app.openapi_schema = schema
+    return schema
+
+# Bind AFTER routes exist
+app.openapi = custom_openapi
+app.openapi_schema = None
