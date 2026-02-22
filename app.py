@@ -1,11 +1,15 @@
 import os
+import logging
+import traceback
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Security
+from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
+
+logger = logging.getLogger("get2wurk")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -35,6 +39,15 @@ def verify_key(x_api_key: str | None) -> None:
 
 # ============  FastAPI app  ============
 app = FastAPI(title="GET2WURK API", version="0.2.0")
+
+# Catch-all handler so ANY unhandled exception returns JSON (not Starlette plain-text 500)
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled exception: %s", traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(exc).__name__}: {exc}"},
+    )
 
 # CORS
 app.add_middleware(
@@ -66,11 +79,19 @@ async def recommend(
 ):
     verify_key(x_api_key)
 
-    # Weather
-    hourly = await fetch_nws_hourly(req.origin.lat, req.origin.lon)
+    # Weather (NWS can be flaky from cloud IPs — degrade gracefully)
+    try:
+        hourly = await fetch_nws_hourly(req.origin.lat, req.origin.lon)
+    except Exception as exc:
+        logger.warning("NWS fetch failed: %s", exc)
+        hourly = None
     wind_speed_mph, wind_dir_from_deg, humidity_pct = parse_wind_humidity_hour(
         hourly, req.depart_at.isoformat() if req.depart_at else None
     )
+    if wind_speed_mph is None:
+        wind_speed_mph = 0
+    if wind_dir_from_deg is None:
+        wind_dir_from_deg = 0.0
     if humidity_pct is None:
         humidity_pct = 50.0
 
