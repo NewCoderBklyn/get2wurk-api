@@ -33,6 +33,7 @@ class Rationale(BaseModel):
     wind_direction_from_deg: Optional[float] = None
     headwind_mph: Optional[float] = None
     humidity_pct: Optional[float] = None
+    is_precipitation: Optional[bool] = None
     rule_triggered: Optional[str] = None
     citibike_origin: Optional[CitiBikeStation] = None
     citibike_destination: Optional[CitiBikeStation] = None

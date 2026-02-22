@@ -250,6 +250,10 @@
           <div class="stat-label">Humidity</div>
           <div class="stat-val" id="humidity">—</div>
         </div>
+        <div class="stat-box" style="grid-column: span 2;">
+          <div class="stat-label">Precipitation</div>
+          <div class="stat-val" id="precipitation">—</div>
+        </div>
       </div>
     </div>
 
@@ -377,6 +381,11 @@
     const humEl = document.getElementById('humidity');
     humEl.textContent = fmt(hum, '%');
     humEl.className = 'stat-val' + (hum != null && hum >= 80 ? ' warn' : hum != null && hum < 60 ? ' ok' : '');
+
+    const precEl = document.getElementById('precipitation');
+    const isPrec = r.is_precipitation;
+    precEl.textContent = isPrec == null ? '—' : isPrec ? '⚠ Rain / Snow' : '✓ Clear';
+    precEl.className = 'stat-val' + (isPrec ? ' warn' : isPrec === false ? ' ok' : '');
 
     // CitiBike stations
     const stEl = document.getElementById('stations');

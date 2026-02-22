@@ -15,7 +15,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 from models import RecommendRequest, RecommendResponse, Rationale, CitiBikeStation, RecommendAddrRequest
 from core.logic import initial_bearing_deg, headwind_component_mph, choose_bike_type
-from services.weather import fetch_nws_hourly, parse_wind_humidity_hour
+from services.weather import fetch_weather, parse_weather_hour
 from services.citibike import (
     fetch_citibike,
     merge_info_status,
@@ -79,14 +79,14 @@ async def recommend(
 ):
     verify_key(x_api_key)
 
-    # Weather (NWS can be flaky from cloud IPs — degrade gracefully)
+    # Weather via Open-Meteo (free, no API key, reliable from cloud IPs)
     try:
-        hourly = await fetch_nws_hourly(req.origin.lat, req.origin.lon)
+        weather_data = await fetch_weather(req.origin.lat, req.origin.lon)
     except Exception as exc:
-        logger.warning("NWS fetch failed: %s", exc)
-        hourly = None
-    wind_speed_mph, wind_dir_from_deg, humidity_pct = parse_wind_humidity_hour(
-        hourly, req.depart_at.isoformat() if req.depart_at else None
+        logger.warning("Weather fetch failed: %s", exc)
+        weather_data = None
+    wind_speed_mph, wind_dir_from_deg, humidity_pct, is_precipitation = parse_weather_hour(
+        weather_data, req.depart_at.isoformat() if req.depart_at else None
     )
     if wind_speed_mph is None:
         wind_speed_mph = 0
@@ -123,8 +123,8 @@ async def recommend(
     bike_type = "none"
     plan_b_note = None
 
-    # Choose bike type + availability handling
-    if req.prefs.bike_allowed:
+    # Precipitation (rain/snow/sleet) always forces subway — skip bike logic
+    if not is_precipitation and req.prefs.bike_allowed:
         bike_type = choose_bike_type(
             headwind, humidity_pct,
             req.prefs.ebike_headwind_threshold_mph,
@@ -181,8 +181,12 @@ async def recommend(
         recommendation = "Walking recommended; no bikes available and transit disabled in preferences."
         summary = recommendation
         plan_b = None
+    elif bike_type == "none" and is_precipitation:
+        recommendation = "Take the subway — rain or snow detected."
+        summary = f"Precipitation makes biking unsafe. Headwind {headwind:.1f} mph, humidity {humidity_pct:.0f}%."
+        plan_b = f"CitiBike still available at {s_origin['name']} if you really want to ride."
     elif bike_type == "none" and req.prefs.transit_allowed:
-        recommendation = "Transit fallback recommended (bikes unavailable or weather unfavorable)."
+        recommendation = "Transit recommended (bikes unavailable or weather unfavorable)."
         summary = f"Headwind {headwind:.1f} mph, humidity {humidity_pct:.0f}%. Take subway/bus as Plan A."
         plan_b = f"Nearest origin station {s_origin['name']} has no suitable bikes; consider nearby subway entrance."
     else:
@@ -196,7 +200,8 @@ async def recommend(
         wind_direction_from_deg=wind_dir_from_deg,
         headwind_mph=headwind,
         humidity_pct=humidity_pct,
-        rule_triggered=f"headwind>={req.prefs.ebike_headwind_threshold_mph} or humidity>={req.prefs.humidity_threshold_pct}",
+        is_precipitation=is_precipitation,
+        rule_triggered="precipitation" if is_precipitation else f"headwind>={req.prefs.ebike_headwind_threshold_mph} or humidity>={req.prefs.humidity_threshold_pct}",
         citibike_origin=CitiBikeStation(
             station_id=s_origin["station_id"], name=s_origin["name"], lat=s_origin["lat"], lon=s_origin["lon"],
             ebikes_available=s_origin["ebikes_available"], classic_available=s_origin["classic_available"], docks_available=s_origin["docks_available"]
