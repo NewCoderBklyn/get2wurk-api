@@ -4,12 +4,11 @@ services:
     env: docker
     plan: free
     autoDeploy: true
+    healthCheckPath: /healthz
     envVars:
       - key: PUBLIC_API_KEY
         value: change-me
       - key: CITIBIKE_GBFS_BASE
         value: https://gbfs.citibikenyc.com/gbfs/en
-      - key: OPENWEATHER_API_KEY
-        sync: false
       - key: MTA_API_KEY
         sync: false

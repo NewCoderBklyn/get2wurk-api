@@ -32,13 +32,15 @@ def merge_info_status(info_json: Dict[str, Any], status_json: Dict[str, Any]) ->
     for st in status_json.get("data", {}).get("stations", []):
         sid = st.get("station_id")
         base = info_map.get(sid, {})
+        ebikes = st.get("num_ebikes_available", 0) or 0
+        total  = st.get("num_bikes_available", 0) or 0
         out.append({
             "station_id": sid,
             "name": base.get("name"),
             "lat": base.get("lat"),
             "lon": base.get("lon"),
-            "ebikes_available": st.get("num_ebikes_available", 0),
-            "classic_available": st.get("num_bikes_available", 0),
+            "ebikes_available": ebikes,
+            "classic_available": max(0, total - ebikes),
             "docks_available": st.get("num_docks_available", 0),
         })
     return out

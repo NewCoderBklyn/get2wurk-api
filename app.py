@@ -1,8 +1,13 @@
 import os
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import APIKeyHeader
+from fastapi.staticfiles import StaticFiles
 from fastapi.openapi.utils import get_openapi
+
+STATIC_DIR = Path(__file__).parent / "static"
 
 from models import RecommendRequest, RecommendResponse, Rationale, CitiBikeStation, RecommendAddrRequest
 from core.logic import initial_bearing_deg, headwind_component_mph, choose_bike_type
@@ -40,10 +45,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Friendly root + health
+# Static files (CSS/JS assets if added later)
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Serve the frontend at root
 @app.get("/")
 async def root():
-    return {"service": "get2wurk-api", "docs": "/docs", "health": "/healthz"}
+    return FileResponse(STATIC_DIR / "index.html")
 
 @app.get("/healthz")
 async def healthz():
@@ -204,6 +213,11 @@ async def recommend_addr(
         prefs=req.prefs
     )
     return await recommend(rr, x_api_key=x_api_key)
+
+@app.post("/v1/web", response_model=RecommendResponse)
+async def web_recommend(req: RecommendAddrRequest):
+    """Public endpoint for the web frontend — no API key required."""
+    return await recommend_addr(req, x_api_key=API_KEY)
 
 @app.get("/v1/quick")
 async def quick(

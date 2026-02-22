@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GET2WURK</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d0d12;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .container { max-width: 520px; margin: 0 auto; }
+
+    /* ── Header ── */
+    header { text-align: center; padding: 2rem 0 1.5rem; }
+    .logo {
+      font-size: 2.6rem; font-weight: 900; letter-spacing: -0.04em; color: #fff;
+    }
+    .logo-accent { color: #22c55e; }
+    .tagline { color: #64748b; font-size: 0.9rem; margin-top: 0.3rem; }
+
+    /* ── Card ── */
+    .card {
+      background: #18181f; border-radius: 12px;
+      padding: 1.25rem; margin-bottom: 1rem;
+    }
+
+    /* ── Form ── */
+    .field { margin-bottom: 0.85rem; }
+    label.field-label {
+      display: block; font-size: 0.7rem; font-weight: 700;
+      color: #64748b; text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 0.3rem;
+    }
+    input[type="text"], input[type="datetime-local"] {
+      width: 100%; background: #0d0d12; border: 1px solid #2a2a35;
+      border-radius: 8px; padding: 0.65rem 0.85rem; color: #e2e8f0;
+      font-size: 0.95rem; outline: none; transition: border-color 0.15s;
+    }
+    input:focus { border-color: #22c55e; }
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+
+    .toggles {
+      display: flex; gap: 1rem; margin-bottom: 1rem;
+    }
+    .toggle-label {
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.85rem; color: #94a3b8; cursor: pointer;
+    }
+    .toggle-label input[type="checkbox"] {
+      width: auto; accent-color: #22c55e;
+    }
+
+    .btn {
+      width: 100%; padding: 0.85rem; border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      background: #22c55e; color: #000; letter-spacing: 0.02em;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── Error ── */
+    .error-box {
+      background: #2d0a0a; border: 1px solid #7f1d1d;
+      border-radius: 8px; padding: 0.85rem; color: #fca5a5;
+      font-size: 0.875rem; margin-bottom: 1rem; display: none;
+    }
+
+    /* ── Result area ── */
+    #result { display: none; }
+
+    /* ── Recommendation card ── */
+    .rec-card {
+      border-radius: 12px; padding: 1.5rem 1.25rem;
+      margin-bottom: 1rem; text-align: center;
+      border: 1px solid transparent;
+    }
+    .rec-card.classic  { background: #0a2318; border-color: #22c55e; }
+    .rec-card.ebike    { background: #0c1d33; border-color: #3b82f6; }
+    .rec-card.transit  { background: #1f1107; border-color: #f59e0b; }
+    .rec-card.none     { background: #1c0707; border-color: #ef4444; }
+
+    .rec-icon { font-size: 3rem; line-height: 1; margin-bottom: 0.5rem; }
+    .rec-mode {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: #64748b; margin-bottom: 0.25rem;
+    }
+    .rec-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 0.35rem; }
+    .rec-card.classic .rec-title  { color: #22c55e; }
+    .rec-card.ebike   .rec-title  { color: #60a5fa; }
+    .rec-card.transit .rec-title  { color: #fbbf24; }
+    .rec-card.none    .rec-title  { color: #f87171; }
+    .rec-summary { font-size: 0.88rem; color: #94a3b8; line-height: 1.5; }
+
+    /* ── Conditions grid ── */
+    .section-title {
+      font-size: 0.68rem; font-weight: 700; color: #475569;
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.75rem;
+    }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; }
+    .stat-box {
+      background: #0d0d12; border-radius: 8px; padding: 0.75rem;
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 0.65rem; font-weight: 700; color: #475569;
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.2rem;
+    }
+    .stat-val { font-size: 1.05rem; font-weight: 700; color: #e2e8f0; }
+    .stat-val.warn { color: #fbbf24; }
+    .stat-val.ok   { color: #22c55e; }
+
+    /* ── Station rows ── */
+    .station-row {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 0.65rem 0; border-bottom: 1px solid #1e1e28;
+    }
+    .station-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .station-row:first-child { padding-top: 0; }
+    .station-role { font-size: 0.65rem; font-weight: 700; color: #475569;
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.15rem; }
+    .station-name { font-size: 0.88rem; font-weight: 600; color: #e2e8f0; }
+    .station-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+
+    .badge {
+      font-size: 0.68rem; font-weight: 700; padding: 0.18rem 0.4rem;
+      border-radius: 4px; white-space: nowrap;
+    }
+    .badge-ebike   { background: #172554; color: #93c5fd; }
+    .badge-classic { background: #052e16; color: #86efac; }
+    .badge-docks   { background: #1c1c24; color: #94a3b8; }
+    .badge-zero    { opacity: 0.35; }
+
+    /* ── Alerts ── */
+    .alert-item {
+      padding: 0.55rem 0.75rem;
+      background: #1f1107; border-left: 3px solid #f59e0b;
+      border-radius: 4px; font-size: 0.82rem; color: #fde68a;
+      margin-bottom: 0.45rem; line-height: 1.45;
+    }
+    .no-alerts { color: #22c55e; font-size: 0.85rem; text-align: center; padding: 0.25rem 0; }
+
+    /* ── Plan B ── */
+    .plan-b-box {
+      background: #0d0d12; border-left: 3px solid #6366f1;
+      border-radius: 4px; padding: 0.65rem 0.85rem;
+      font-size: 0.83rem; color: #a5b4fc; line-height: 1.5;
+    }
+
+    /* ── Recommendation text ── */
+    .rec-text {
+      background: #0d0d12; border-radius: 8px; padding: 0.75rem;
+      font-size: 0.85rem; color: #94a3b8; line-height: 1.5;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(0,0,0,0.25); border-top-color: #000;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer {
+      text-align: center; color: #2d3748; font-size: 0.72rem;
+      padding: 1.5rem 0 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo">GET<span class="logo-accent">2</span>WURK</div>
+    <div class="tagline">Bike or subway? Real-time NYC commute intel.</div>
+  </header>
+
+  <!-- Input form -->
+  <div class="card">
+    <div class="field">
+      <label class="field-label" for="origin">From</label>
+      <input type="text" id="origin" placeholder="e.g. 350 W 42nd St, New York" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="dest">To</label>
+      <input type="text" id="dest" placeholder="e.g. 250 W 57th St, New York" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="depart">Departing (leave blank for now)</label>
+      <input type="datetime-local" id="depart" />
+    </div>
+    <div class="toggles">
+      <label class="toggle-label">
+        <input type="checkbox" id="bike_allowed" checked /> Biking OK
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" id="transit_allowed" checked /> Transit OK
+      </label>
+    </div>
+    <button class="btn" id="go-btn" onclick="getRecommendation()">Get Recommendation</button>
+  </div>
+
+  <!-- Error message -->
+  <div id="error-box" class="error-box"></div>
+
+  <!-- Results -->
+  <div id="result">
+
+    <!-- Big recommendation -->
+    <div id="rec-card" class="rec-card">
+      <div id="rec-icon" class="rec-icon"></div>
+      <div class="rec-mode">Recommendation</div>
+      <div id="rec-title" class="rec-title"></div>
+      <div id="rec-summary" class="rec-summary"></div>
+    </div>
+
+    <!-- Full recommendation text -->
+    <div class="card" id="rec-detail-card">
+      <div class="section-title">Details</div>
+      <div id="rec-detail" class="rec-text"></div>
+    </div>
+
+    <!-- Conditions -->
+    <div class="card">
+      <div class="section-title">Conditions</div>
+      <div class="grid2">
+        <div class="stat-box">
+          <div class="stat-label">Wind Speed</div>
+          <div class="stat-val" id="wind-speed">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Wind Direction</div>
+          <div class="stat-val" id="wind-dir">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Headwind</div>
+          <div class="stat-val" id="headwind">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Humidity</div>
+          <div class="stat-val" id="humidity">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CitiBike stations -->
+    <div class="card">
+      <div class="section-title">CitiBike Stations</div>
+      <div id="stations"></div>
+    </div>
+
+    <!-- MTA alerts -->
+    <div class="card">
+      <div class="section-title">MTA Alerts</div>
+      <div id="alerts"></div>
+    </div>
+
+    <!-- Plan B -->
+    <div class="card" id="planb-card" style="display:none;">
+      <div class="section-title">Plan B</div>
+      <div id="plan-b" class="plan-b-box"></div>
+    </div>
+
+  </div><!-- #result -->
+
+  <footer>
+    Weather: NWS &nbsp;·&nbsp; Bikes: Citi Bike GBFS &nbsp;·&nbsp; Transit: MTA
+  </footer>
+
+</div><!-- .container -->
+
+<script>
+  const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+
+  function degToCompass(deg) {
+    if (deg == null) return '—';
+    return COMPASS[Math.round(deg / 22.5) % 16] + ' (' + Math.round(deg) + '°)';
+  }
+
+  function bikeIcon(type) {
+    return { classic: '🚲', ebike: '⚡', none: '🚇' }[type] ?? '🚇';
+  }
+
+  function recClass(type) {
+    return { classic: 'classic', ebike: 'ebike', none: 'transit' }[type] ?? 'transit';
+  }
+
+  function recLabel(type) {
+    return { classic: 'Classic CitiBike', ebike: 'E-Bike', none: 'Take the Subway' }[type] ?? 'Subway';
+  }
+
+  function fmt(val, unit, decimals = 0) {
+    if (val == null) return '—';
+    return (decimals > 0 ? val.toFixed(decimals) : Math.round(val)) + ' ' + unit;
+  }
+
+  async function getRecommendation() {
+    const origin = document.getElementById('origin').value.trim();
+    const dest   = document.getElementById('dest').value.trim();
+    if (!origin || !dest) {
+      showError('Please enter both origin and destination addresses.');
+      return;
+    }
+
+    const btn = document.getElementById('go-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Checking…';
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('error-box').style.display = 'none';
+
+    const depart = document.getElementById('depart').value;
+    const body = {
+      origin_addr: origin,
+      destination_addr: dest,
+      prefs: {
+        bike_allowed:    document.getElementById('bike_allowed').checked,
+        transit_allowed: document.getElementById('transit_allowed').checked,
+      }
+    };
+    if (depart) body.depart_at = new Date(depart).toISOString();
+
+    try {
+      const res = await fetch('/v1/web', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        showError(err.detail || 'Something went wrong — please try again.');
+        return;
+      }
+      renderResult(await res.json());
+    } catch (e) {
+      showError('Network error — is the server reachable?');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Get Recommendation';
+    }
+  }
+
+  function renderResult(data) {
+    const type = data.bike_type;
+    const cls  = recClass(type);
+
+    // Recommendation card
+    document.getElementById('rec-card').className = 'rec-card ' + cls;
+    document.getElementById('rec-icon').textContent  = bikeIcon(type);
+    document.getElementById('rec-title').textContent = recLabel(type);
+    document.getElementById('rec-summary').textContent = data.summary;
+
+    // Detail text
+    document.getElementById('rec-detail').textContent = data.recommendation;
+
+    // Conditions
+    const r = data.rationale ?? {};
+    const hw = r.headwind_mph;
+    const hum = r.humidity_pct;
+
+    document.getElementById('wind-speed').textContent = fmt(r.wind_speed_mph, 'mph');
+    document.getElementById('wind-dir').textContent   = degToCompass(r.wind_direction_from_deg);
+
+    const hwEl = document.getElementById('headwind');
+    hwEl.textContent = hw != null ? (hw > 0 ? '+' : '') + hw.toFixed(1) + ' mph' : '—';
+    hwEl.className = 'stat-val' + (hw != null && hw >= 9 ? ' warn' : hw != null && hw < 0 ? ' ok' : '');
+
+    const humEl = document.getElementById('humidity');
+    humEl.textContent = fmt(hum, '%');
+    humEl.className = 'stat-val' + (hum != null && hum >= 80 ? ' warn' : hum != null && hum < 60 ? ' ok' : '');
+
+    // CitiBike stations
+    const stEl = document.getElementById('stations');
+    stEl.innerHTML = '';
+    for (const [role, st] of [['Origin', r.citibike_origin], ['Destination', r.citibike_destination]]) {
+      if (!st) continue;
+      const ebikeZ  = st.ebikes_available   === 0;
+      const classicZ = st.classic_available === 0;
+      const docksZ   = st.docks_available   === 0;
+      stEl.innerHTML += `
+        <div class="station-row">
+          <div>
+            <div class="station-role">${role}</div>
+            <div class="station-name">${st.name}</div>
+          </div>
+          <div class="station-badges">
+            <span class="badge badge-ebike${ebikeZ ? ' badge-zero' : ''}">⚡ ${st.ebikes_available}</span>
+            <span class="badge badge-classic${classicZ ? ' badge-zero' : ''}">🚲 ${st.classic_available}</span>
+            <span class="badge badge-docks${docksZ ? ' badge-zero' : ''}">🅿 ${st.docks_available}</span>
+          </div>
+        </div>`;
+    }
+
+    // MTA alerts
+    const alertsEl = document.getElementById('alerts');
+    const alerts = r.alerts ?? [];
+    alertsEl.innerHTML = alerts.length === 0
+      ? '<div class="no-alerts">✓ No active MTA service alerts</div>'
+      : alerts.map(a => `<div class="alert-item">${escHtml(a)}</div>`).join('');
+
+    // Plan B
+    const planBCard = document.getElementById('planb-card');
+    if (data.plan_b) {
+      document.getElementById('plan-b').textContent = data.plan_b;
+      planBCard.style.display = 'block';
+    } else {
+      planBCard.style.display = 'none';
+    }
+
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-box');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Enter key triggers recommendation
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('go-btn').disabled) getRecommendation();
+  });
+</script>
+
+</body>
+</html>
