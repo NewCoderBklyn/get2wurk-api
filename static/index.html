@@ -161,6 +161,35 @@
       font-size: 0.85rem; color: #94a3b8; line-height: 1.5;
     }
 
+    /* ── Threshold sliders ── */
+    .pref-divider {
+      border-top: 1px solid #1e1e28; margin: 0.75rem 0 0.85rem;
+    }
+    .slider-group { margin-bottom: 0.65rem; }
+    .slider-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 0.25rem;
+    }
+    .slider-lbl {
+      font-size: 0.7rem; font-weight: 700; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .slider-cur { font-size: 0.88rem; font-weight: 700; color: #22c55e; }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px; border-radius: 2px;
+      background: #2a2a35; cursor: pointer; outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #22c55e; cursor: pointer;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #22c55e; cursor: pointer; border: none;
+    }
+
     /* ── Spinner ── */
     .spinner {
       display: inline-block; width: 14px; height: 14px;
@@ -206,6 +235,23 @@
       <label class="toggle-label">
         <input type="checkbox" id="transit_allowed" checked /> Transit OK
       </label>
+    </div>
+    <div class="pref-divider"></div>
+    <div class="slider-group">
+      <div class="slider-row">
+        <span class="slider-lbl">E-bike if headwind &ge;</span>
+        <span class="slider-cur"><span id="wind-thresh-val">9</span> mph</span>
+      </div>
+      <input type="range" id="wind_threshold" min="3" max="20" step="1" value="9"
+             oninput="document.getElementById('wind-thresh-val').textContent=this.value" />
+    </div>
+    <div class="slider-group">
+      <div class="slider-row">
+        <span class="slider-lbl">E-bike if humidity &ge;</span>
+        <span class="slider-cur"><span id="hum-thresh-val">80</span>%</span>
+      </div>
+      <input type="range" id="humidity_threshold" min="40" max="100" step="5" value="80"
+             oninput="document.getElementById('hum-thresh-val').textContent=this.value" />
     </div>
     <button class="btn" id="go-btn" onclick="getRecommendation()">Get Recommendation</button>
   </div>
@@ -329,6 +375,8 @@
       prefs: {
         bike_allowed:    document.getElementById('bike_allowed').checked,
         transit_allowed: document.getElementById('transit_allowed').checked,
+        ebike_headwind_threshold_mph: parseFloat(document.getElementById('wind_threshold').value),
+        humidity_threshold_pct:       parseFloat(document.getElementById('humidity_threshold').value),
       }
     };
     if (depart) body.depart_at = new Date(depart).toISOString();
