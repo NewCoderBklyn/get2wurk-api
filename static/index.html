@@ -487,6 +487,47 @@
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // ── localStorage preferences ─────────────────────────────────────────────
+  const PREFS_KEY = 'g2w_prefs';
+
+  function savePrefs() {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({
+      origin:  document.getElementById('origin').value,
+      dest:    document.getElementById('dest').value,
+      bike:    document.getElementById('bike_allowed').checked,
+      transit: document.getElementById('transit_allowed').checked,
+      windT:   document.getElementById('wind_threshold').value,
+      humT:    document.getElementById('humidity_threshold').value,
+    }));
+  }
+
+  function loadPrefs() {
+    let p;
+    try { p = JSON.parse(localStorage.getItem(PREFS_KEY)); } catch { return; }
+    if (!p) return;
+    if (p.origin  != null) document.getElementById('origin').value = p.origin;
+    if (p.dest    != null) document.getElementById('dest').value   = p.dest;
+    if (p.bike    != null) document.getElementById('bike_allowed').checked    = p.bike;
+    if (p.transit != null) document.getElementById('transit_allowed').checked = p.transit;
+    if (p.windT   != null) {
+      document.getElementById('wind_threshold').value            = p.windT;
+      document.getElementById('wind-thresh-val').textContent     = p.windT;
+    }
+    if (p.humT    != null) {
+      document.getElementById('humidity_threshold').value        = p.humT;
+      document.getElementById('hum-thresh-val').textContent      = p.humT;
+    }
+  }
+
+  // Auto-save on any field change
+  ['origin', 'dest', 'wind_threshold', 'humidity_threshold']
+    .forEach(id => document.getElementById(id).addEventListener('input', savePrefs));
+  ['bike_allowed', 'transit_allowed']
+    .forEach(id => document.getElementById(id).addEventListener('change', savePrefs));
+
+  // Restore saved values immediately
+  loadPrefs();
+
   // Enter key triggers recommendation
   document.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !document.getElementById('go-btn').disabled) getRecommendation();
